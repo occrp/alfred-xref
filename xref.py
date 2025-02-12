@@ -927,7 +927,7 @@ def match_query(proxy, collection_ids=None, query=None):
     query["bool"]["should"].extend(scoring)
     return query
 
-if __name__ == '__main__':
+def main():
     app = flask.Flask("aleph")
     #app.config.from_object(SETTINGS)
     app.config.update({
@@ -950,4 +950,10 @@ if __name__ == '__main__':
         sys.exit(1)
 
     with app.app_context():
+        # No-op for testing if the script works at all.
+        if collection_id == 0:
+            return
         xref_collection(collection_id)
+
+if __name__ == '__main__':
+    main()
