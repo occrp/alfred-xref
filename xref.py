@@ -10,7 +10,6 @@ import elasticsearch.helpers
 import werkzeug.local
 import prometheus_client
 
-
 # /home/martin/.local/lib/python3.13/site-packages/followthemoney_compare/models/model_base.py:48:
 # FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version.
 # Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
@@ -26,7 +25,11 @@ warnings.simplefilter(action='ignore', category=DeprecationWarning)
 
 # settings.py
 #############
+
 ELASTICSEARCH_URL              = servicelayer.env.get("ALEPH_ELASTICSEARCH_URI", "http://elastic:elastic@127.0.0.1:9200")
+DATABASE_URI                   = servicelayer.env.get("ALEPH_DATABASE_URI", 'postgresql://aleph:aleph@127.0.0.1/aleph')
+FTM_STORE_URI                  = servicelayer.env.get("FTM_STORE_URI", 'postgresql://aleph:aleph@127.0.0.1/aleph_ftm')
+
 ELASTICSEARCH_TLS_CA_CERTS     = servicelayer.env.get("ELASTICSEARCH_TLS_CA_CERTS")
 ELASTICSEARCH_TLS_VERIFY_CERTS = servicelayer.env.to_bool("ELASTICSEARCH_TLS_VERIFY_CERTS")
 ELASTICSEARCH_TLS_CLIENT_CERT  = servicelayer.env.get("ELASTICSEARCH_TLS_CLIENT_CERT")
@@ -40,7 +43,6 @@ INDEX_WRITE                    = servicelayer.env.get("ALEPH_INDEX_WRITE", "v1")
 INDEX_READ                     = servicelayer.env.to_list("ALEPH_INDEX_READ", [INDEX_WRITE])
 XREF_MODEL                     = servicelayer.env.get("FTM_COMPARE_MODEL", './data/model.pkl')
 SECRET_KEY                     = servicelayer.env.get("ALEPH_SECRET_KEY", 'secret')
-DATABASE_URI                   = servicelayer.env.get("ALEPH_DATABASE_URI", 'postgresql://aleph:aleph@127.0.0.1/aleph')
 
 # Needed before importing ftmstore. What a design....
 os.environ['FTM_STORE_URI'] = DATABASE_URI

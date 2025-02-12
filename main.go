@@ -52,7 +52,11 @@ func main() {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &xrefWorker{})
 
-	dbpool, err := pgxpool.New(ctx, "postgres://aleph:aleph@127.0.0.1/aleph_ftm")
+	conn, ok := os.LookupEnv("FTM_STORE_URI")
+	if !ok {
+		conn = "postgres://aleph:aleph@127.0.0.1/aleph_ftm"
+	}
+	dbpool, err := pgxpool.New(ctx, conn)
 	fatal(err)
 
 	rc, err := river.NewClient(riverpgxv5.New(dbpool), &river.Config{
