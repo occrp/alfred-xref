@@ -443,9 +443,7 @@ class Match:
 def xref_collection(collection_id):
     """Cross-reference all the entities and documents in a collection"""
 
-    log.info(
-        f"[{collection_id}] xref_collection scroll settings: scroll={XREF_SCROLL}, scroll_size={XREF_SCROLL_SIZE}"
-    )
+    log.info(f"[{collection_id}] xref_collection scroll settings: scroll={XREF_SCROLL}, scroll_size={XREF_SCROLL_SIZE}")
     log.info(f"[{collection_id}] Clearing previous xref state....")
 
     #delete_xref(collection_id, sync=True)
@@ -563,24 +561,12 @@ def _query_item(entity, entitysets=True):
             continue
         candidate = followthemoney.model.get_proxy(result)
         candidates.append(candidate)
-    log.debug(
-        "Candidate [%s]: %s: %d possible matches",
-        entity.schema.name,
-        entity.caption,
-        len(candidates),
-    )
+    log.debug("Candidate [%s]: %s: %d possible matches", entity.schema.name, entity.caption, len(candidates))
 
     results = _bulk_compare([(entity, c) for c in candidates])
     match_count = 0
     for match, (score, doubt, method) in zip(candidates, results):
-        log.debug(
-            "Match: %s: %s <[%.2f]@%0.2f> %s",
-            method,
-            entity.caption,
-            score or 0.0,
-            doubt or 0.0,
-            match.caption,
-        )
+        log.debug("Match: %s: %s <[%.2f]@%0.2f> %s", method, entity.caption, score or 0.0, doubt or 0.0, match.caption)
         if score > 0:
             yield Match(
                 score=score,
@@ -641,8 +627,7 @@ def index_matches(collection_id, matches, sync=False):
     bulk_actions(_index_form(collection_id, matches), sync=sync)
 
 def _index_form(collection_id, matches):
-    #now = datetime.datetime.utcnow().isoformat()
-    now = datetime.datetime.now(datetime.UTC).isoformat()
+    now = datetime.datetime.utcnow().isoformat()
     for match in matches:
         xref_id = banal.hash_data((match.entity.id, collection_id, match.match.id))
         text = set([match.entity.caption, match.match.caption])
