@@ -28,7 +28,7 @@ type (
 	xrefWorker struct{ river.WorkerDefaults[xrefArgs] }
 )
 
-func (xrefArgs) Kind() string { return "xref" }
+func (xrefArgs) Kind() string { return "xref-compute" }
 
 func (w *xrefWorker) Work(ctx context.Context, job *river.Job[xrefArgs]) error {
 	out, err := exec.Command("python3", "./xref.py", strconv.Itoa(int(job.Args.CollectionID))).CombinedOutput()
@@ -52,7 +52,7 @@ func main() {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &xrefWorker{})
 
-	conn, ok := os.LookupEnv("FTM_STORE_URI")
+	conn, ok := os.LookupEnv("ALFRED_DB_FTM")
 	if !ok {
 		conn = "postgres://aleph:aleph@127.0.0.1/aleph_ftm"
 	}

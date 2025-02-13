@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import logging, os, datetime, sys, enum, timeit, dataclasses, typing, random, warnings
 
 import banal, followthemoney, itsdangerous, fingerprints
@@ -25,11 +27,15 @@ warnings.simplefilter(action='ignore', category=DeprecationWarning)
 
 # settings.py
 #############
+ELASTICSEARCH_URL              = servicelayer.env.get("ALFRED_ES",         'http://elastic:elastic@127.0.0.1:9200')
+DATABASE_URI                   = servicelayer.env.get("ALFRED_DB",         'postgresql://aleph:aleph@127.0.0.1/aleph')
+FTM_STORE_URI                  = servicelayer.env.get("ALFRED_DB_FTM",     'postgresql://aleph:aleph@127.0.0.1/aleph_ftm')
+XREF_MODEL                     = servicelayer.env.get("FTM_COMPARE_MODEL", './data/model.pkl')
+# Picked up by ftm_compare:
+#FTM_COMPARE_FREQUENCIES_DIR   = './data/word_frequencies'
 
-ELASTICSEARCH_URL              = servicelayer.env.get("ALEPH_ELASTICSEARCH_URI", "http://elastic:elastic@127.0.0.1:9200")
-DATABASE_URI                   = servicelayer.env.get("ALEPH_DATABASE_URI", 'postgresql://aleph:aleph@127.0.0.1/aleph')
-FTM_STORE_URI                  = servicelayer.env.get("FTM_STORE_URI", 'postgresql://aleph:aleph@127.0.0.1/aleph_ftm')
-
+# Probably less useful to set these, but the Aleph code refers it so copying
+# here.
 ELASTICSEARCH_TLS_CA_CERTS     = servicelayer.env.get("ELASTICSEARCH_TLS_CA_CERTS")
 ELASTICSEARCH_TLS_VERIFY_CERTS = servicelayer.env.to_bool("ELASTICSEARCH_TLS_VERIFY_CERTS")
 ELASTICSEARCH_TLS_CLIENT_CERT  = servicelayer.env.get("ELASTICSEARCH_TLS_CLIENT_CERT")
@@ -41,13 +47,10 @@ APP_NAME                       = servicelayer.env.get("ALEPH_APP_NAME", "aleph")
 INDEX_PREFIX                   = servicelayer.env.get("ALEPH_INDEX_PREFIX", APP_NAME)
 INDEX_WRITE                    = servicelayer.env.get("ALEPH_INDEX_WRITE", "v1")
 INDEX_READ                     = servicelayer.env.to_list("ALEPH_INDEX_READ", [INDEX_WRITE])
-XREF_MODEL                     = servicelayer.env.get("FTM_COMPARE_MODEL", './data/model.pkl')
 SECRET_KEY                     = servicelayer.env.get("ALEPH_SECRET_KEY", 'secret')
 
 # Needed before importing ftmstore. What a design....
 os.environ['FTM_STORE_URI'] = DATABASE_URI
-#FTM_COMPARE_FREQUENCIES_DIR    = '/opt/ftm-compare/word-frequencies/'
-#FTM_COMPARE_MODEL              = '/opt/ftm-compare/model.pkl'
 
 import ftmstore
 
