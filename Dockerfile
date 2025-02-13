@@ -1,7 +1,5 @@
 # Build the Go binary.
 FROM golang:latest AS go
-ARG GOARCH="amd64"
-ARG GOOS="linux"
 ARG CGO_ENABLED=0
 WORKDIR /app
 COPY . /app
