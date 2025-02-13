@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import logging, os, datetime, sys, enum, timeit, dataclasses, typing, random, warnings
+import logging, os, datetime, sys, enum, timeit, dataclasses, typing, random, warnings, argparse
 
 import banal, followthemoney, itsdangerous, fingerprints
 from followthemoney_compare.models import GLMBernoulli2EEvaluator
@@ -24,6 +24,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 #   result = es.search(index=index, body=query)
 warnings.simplefilter(action='ignore', category=DeprecationWarning)
 
+log = logging.getLogger(__name__)
 
 # settings.py
 #############
@@ -31,7 +32,7 @@ ELASTICSEARCH_URL              = servicelayer.env.get("ALFRED_ES",         'http
 DATABASE_URI                   = servicelayer.env.get("ALFRED_DB",         'postgresql://aleph:aleph@127.0.0.1/aleph')
 FTM_STORE_URI                  = servicelayer.env.get("ALFRED_DB_FTM",     'postgresql://aleph:aleph@127.0.0.1/aleph_ftm')
 XREF_MODEL                     = servicelayer.env.get("FTM_COMPARE_MODEL", './data/model.pkl')
-# Picked up by ftm_compare:
+# Env var picked up by ftm_compare:
 #FTM_COMPARE_FREQUENCIES_DIR   = './data/word_frequencies'
 
 # Probably less useful to set these, but the Aleph code refers it so copying
@@ -51,26 +52,14 @@ SECRET_KEY                     = servicelayer.env.get("ALEPH_SECRET_KEY", 'secre
 
 # Needed before importing ftmstore. What a design....
 os.environ['FTM_STORE_URI'] = DATABASE_URI
-
 import ftmstore
-
-#DEFAULT_DATABASE_URI = "sqlite:///followthemoney.store"
-# DATABASE_URI = os.getenv('BALKHASH_DATABASE_URI', DEFAULT_DATABASE_URI)
-#DATABASE_URI = os.getenv("FTM_STORE_URI", DEFAULT_DATABASE_URI)
-#DATABASE_PREFIX = os.getenv("FTM_STORE_PREFIX", "ftm")
-
 
 # servicelayer/settings.py
 ##########################
-LOG_FORMAT = servicelayer.env.get("LOG_FORMAT", "TEXT")  # options are: TEXT or JSON
-
-
-# Unit test context.
-TESTING = False
+TESTING = False # Unit test context.
 
 ### aleph.core
 ##############
-
 db = flask_sqlalchemy.SQLAlchemy()
 
 _es_instance = None
@@ -89,12 +78,7 @@ def get_es():
     for attempt in servicelayer.util.service_retries():
         try:
             if _es_instance is None:
-                # When logging structured logs, use a custom transport to log
-                # all es queries and their response time
-                if LOG_FORMAT == servicelayer.logs.LOG_FORMAT_JSON:
-                    es = elasticsearch.Elasticsearch(url, transport_class=LoggingTransport, timeout=timeout, **con_opts)
-                else:
-                    es = elasticsearch.Elasticsearch(url, timeout=timeout, **con_opts)
+                es = elasticsearch.Elasticsearch(url, timeout=timeout, **con_opts)
                 es.info()
                 _es_instance = es
             return _es_instance
@@ -403,7 +387,6 @@ class Permission(db.Model, IdModel, DatedModel):
 # logic/xref.py
 ###############
 
-log = logging.getLogger(__name__)
 ORIGIN = "xref"
 MODEL = None
 FTM_VERSION_STR = f"ftm-{followthemoney.__version__}"
@@ -454,9 +437,9 @@ def xref_collection(collection_id):
 
     index_matches(collection_id, _query_entities(collection_id))
     index_matches(collection_id, _query_mentions(collection_id))
- 
+
     log.info(f"[{collection_id}] Xref done, re-indexing to reify mentions...")
-    
+
     #reindex_collection(collection_id, sync=False)
 
 def _query_entities(collection_id):
@@ -507,7 +490,7 @@ def _iter_mentions(collection_id):
     """Combine mentions into pseudo-entities used for xref."""
 
     log.info("[%s] Generating mention-based xref...", collection_id)
-    
+
     proxy = followthemoney.model.make_entity(LEGAL_ENTITY)
     for mention in iter_proxies(
         collection_id  = collection_id,
@@ -918,32 +901,34 @@ def match_query(proxy, collection_ids=None, query=None):
     return query
 
 def main():
+    p = argparse.ArgumentParser(prog=sys.argv[0])
+    p.add_argument('collection_id', type=int)
+    p.add_argument('-dev',   action='store_true', help='format logs as plain text, rather than JSON')
+    p.add_argument('-debug', action='store_true', help='enable debug logs')
+    args = p.parse_args()
+
+    servicelayer.settings.LOG_FORMAT = servicelayer.logs.LOG_FORMAT_TEXT if args.dev else servicelayer.logs.LOG_FORMAT_JSON
+    servicelayer.logs.configure_logging(level=logging.DEBUG if args.debug else logging.INFO)
+
+    # Don't log so much from ES lib.
+    logging.getLogger('elasticsearch').setLevel(logging.WARNING)
+    logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
+
     app = flask.Flask("aleph")
-    #app.config.from_object(SETTINGS)
     app.config.update({
         "SQLALCHEMY_DATABASE_URI" : DATABASE_URI,
         "FLASK_SKIP_DOTENV"       : True,
-        #"FLASK_DEBUG"             : SETTINGS.DEBUG,
+        "FLASK_DEBUG"             : args.debug,
         "BABEL_DOMAIN"            : "aleph",
         #"PROFILE"                 : SETTINGS.PROFILE,
     })
-
     db.init_app(app)
-
-    if len(sys.argv) != 2:
-        print(f'usage: {sys.argv[0]} [collection_id]', file=sys.stderr)
-        sys.exit(1)
-    try:
-        collection_id = int(sys.argv[1])
-    except ValueError:
-        print(f'collection_id ‘{sys.argv[1]}’ is not a number', file=sys.stderr)
-        sys.exit(1)
 
     with app.app_context():
         # No-op for testing if the script works at all.
-        if collection_id == 0:
+        if args.collection_id == 0:
             return
-        xref_collection(collection_id)
+        xref_collection(args.collection_id)
 
 if __name__ == '__main__':
     main()

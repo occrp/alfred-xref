@@ -6,6 +6,8 @@ require (
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/riverqueue/river v0.16.0
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.16.0
+	zgo.at/slog_align v0.0.0-20240913105347-cb623882eeef
+	zgo.at/zli v0.0.0-20241220135549-7a37675fadfd
 )
 
 require (
@@ -17,6 +19,7 @@ require (
 	github.com/riverqueue/river/riverdriver v0.16.0 // indirect
 	github.com/riverqueue/river/rivershared v0.16.0 // indirect
 	github.com/riverqueue/river/rivertype v0.16.0 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
@@ -27,4 +30,6 @@ require (
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	zgo.at/runewidth v0.1.0 // indirect
+	zgo.at/termtext v1.5.0 // indirect
 )

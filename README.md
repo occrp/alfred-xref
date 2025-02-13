@@ -1,8 +1,11 @@
 xref computation for Alfred; the xref.py CLI takes a collectionID at the first
 argument, e.g. `./xref.py 7`.
 
-The main.go reads from the `xref` river queue to run that CLI. This is how
-Alfred runs it.
+The main.go programs reads from the `xref` river queue to run that CLI. This is
+how Alfred runs it.
+
+Use -dev to output text logs (rather than JSON), and -debug to enable debug
+logs (this works for both xref.py and main.go).
 
 ---
 
