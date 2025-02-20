@@ -14,7 +14,7 @@ COPY --from=go /app/alfred-xref /app/alfred-xref
 COPY xref.py /app/xref.py
 COPY setup.sh /app/setup.sh
 COPY requirements.txt /app/requirements.txt
-RUN pip3 install --no-cache-dir -q -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 RUN ./setup.sh
 
 # Run
