@@ -742,7 +742,7 @@ def query_delete(index, query, sync=False, **kwargs):
                 **kwargs,
             )
             return
-        except TransportError as exc:
+        except elasticsearch.TransportError as exc:
             if exc.status_code in ("400", "403"):
                 raise
             log.warning("Query delete failed: %s", exc)
