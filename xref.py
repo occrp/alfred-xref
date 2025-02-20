@@ -37,18 +37,19 @@ XREF_MODEL                     = servicelayer.env.get("FTM_COMPARE_MODEL", './da
 
 # Probably less useful to set these, but the Aleph code refers it so copying
 # here.
-ELASTICSEARCH_TLS_CA_CERTS     = servicelayer.env.get("ELASTICSEARCH_TLS_CA_CERTS")
-ELASTICSEARCH_TLS_VERIFY_CERTS = servicelayer.env.to_bool("ELASTICSEARCH_TLS_VERIFY_CERTS")
-ELASTICSEARCH_TLS_CLIENT_CERT  = servicelayer.env.get("ELASTICSEARCH_TLS_CLIENT_CERT")
-ELASTICSEARCH_TLS_CLIENT_KEY   = servicelayer.env.get("ELASTICSEARCH_TLS_CLIENT_KEY")
-ELASTICSEARCH_TIMEOUT          = servicelayer.env.to_int("ELASTICSEARCH_TIMEOUT", 60)
-XREF_SCROLL                    = servicelayer.env.get("ALEPH_XREF_SCROLL", "5m")
-XREF_SCROLL_SIZE               = servicelayer.env.get("ALEPH_XREF_SCROLL_SIZE", "1000")
-APP_NAME                       = servicelayer.env.get("ALEPH_APP_NAME", "aleph")
-INDEX_PREFIX                   = servicelayer.env.get("ALEPH_INDEX_PREFIX", APP_NAME)
-INDEX_WRITE                    = servicelayer.env.get("ALEPH_INDEX_WRITE", "v1")
-INDEX_READ                     = servicelayer.env.to_list("ALEPH_INDEX_READ", [INDEX_WRITE])
-SECRET_KEY                     = servicelayer.env.get("ALEPH_SECRET_KEY", 'secret')
+ELASTICSEARCH_TLS_CA_CERTS      = servicelayer.env.get("ELASTICSEARCH_TLS_CA_CERTS")
+ELASTICSEARCH_TLS_VERIFY_CERTS  = servicelayer.env.to_bool("ELASTICSEARCH_TLS_VERIFY_CERTS")
+ELASTICSEARCH_TLS_CLIENT_CERT   = servicelayer.env.get("ELASTICSEARCH_TLS_CLIENT_CERT")
+ELASTICSEARCH_TLS_CLIENT_KEY    = servicelayer.env.get("ELASTICSEARCH_TLS_CLIENT_KEY")
+ELASTICSEARCH_TIMEOUT           = servicelayer.env.to_int("ELASTICSEARCH_TIMEOUT", 60)
+XREF_SCROLL                     = servicelayer.env.get("ALEPH_XREF_SCROLL", "5m")
+XREF_SCROLL_SIZE                = servicelayer.env.get("ALEPH_XREF_SCROLL_SIZE", "1000")
+APP_NAME                        = servicelayer.env.get("ALEPH_APP_NAME", "aleph")
+INDEX_PREFIX                    = servicelayer.env.get("ALEPH_INDEX_PREFIX", APP_NAME)
+INDEX_WRITE                     = servicelayer.env.get("ALEPH_INDEX_WRITE", "v1")
+INDEX_READ                      = servicelayer.env.to_list("ALEPH_INDEX_READ", [INDEX_WRITE])
+INDEX_DELETE_BY_QUERY_BATCHSIZE = servicelayer.env.to_int("ALEPH_INDEX_DELETE_BY_QUERY_BATCHSIZE", 100)
+SECRET_KEY                      = servicelayer.env.get("ALEPH_SECRET_KEY", 'secret')
 
 # Needed before importing ftmstore. What a design....
 os.environ['FTM_STORE_URI'] = DATABASE_URI
@@ -432,14 +433,15 @@ def xref_collection(collection_id):
     log.info(f"[{collection_id}] xref_collection scroll settings: scroll={XREF_SCROLL}, scroll_size={XREF_SCROLL_SIZE}")
     log.info(f"[{collection_id}] Clearing previous xref state....")
 
-    #delete_xref(collection_id, sync=True)
-    #delete_entities(collection_id, origin=ORIGIN, sync=True)
+    delete_xref(collection_id, sync=True)
+    delete_entities(collection_id, origin=ORIGIN, sync=True)
 
     index_matches(collection_id, _query_entities(collection_id))
     index_matches(collection_id, _query_mentions(collection_id))
 
     log.info(f"[{collection_id}] Xref done, re-indexing to reify mentions...")
 
+    # TODO: do we really need to do this?
     #reindex_collection(collection_id, sync=False)
 
 def _query_entities(collection_id):
@@ -641,6 +643,20 @@ def _index_form(collection_id, matches):
             },
         }
 
+def delete_xref(collection_id, entity_id=None, sync=False):
+    """Delete xref matches of an entity or a collection."""
+    shoulds = [
+        {"term": {"collection_id": collection_id}},
+        {"term": {"match_collection_id": collection_id}},
+    ]
+    if entity_id is not None:
+        shoulds = [
+            {"term": {"entity_id": entity_id}},
+            {"term": {"match_id": entity_id}},
+        ]
+    query = {"bool": {"should": shoulds, "minimum_should_match": 1}}
+    query_delete(xref_index(), query, sync=sync)
+
 # index/util.py
 ###############
 
@@ -707,6 +723,41 @@ def unpack_result(res):
         for key, value in res.get("highlight", {}).items():
             data["highlight"].extend(value)
     return data
+
+def query_delete(index, query, sync=False, **kwargs):
+    "Delete all documents matching the given query inside the index."
+    for attempt in servicelayer.util.service_retries():
+        try:
+            es.delete_by_query(
+                index=index,
+                body={"query": query},
+                _source=False,
+                slices="auto",
+                conflicts="proceed",
+                wait_for_completion=sync,
+                refresh=refresh_sync(sync),
+                request_timeout=MAX_REQUEST_TIMEOUT,
+                timeout=MAX_TIMEOUT,
+                scroll_size=INDEX_DELETE_BY_QUERY_BATCHSIZE,
+                **kwargs,
+            )
+            return
+        except TransportError as exc:
+            if exc.status_code in ("400", "403"):
+                raise
+            log.warning("Query delete failed: %s", exc)
+            servicelayer.util.backoff(failures=attempt)
+
+# index/collection.py
+#####################
+
+def delete_entities(collection_id, origin=None, schema=None, sync=False):
+    """Delete entities from a collection."""
+    filters = [{"term": {"collection_id": collection_id}}]
+    if origin is not None:
+        filters.append({"term": {"origin": origin}})
+    query = {"bool": {"filter": filters}}
+    query_delete(entities_read_index(schema), query, sync=sync)
 
 # index/entities.py
 ###################

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -15,14 +14,6 @@ import (
 	"zgo.at/slog_align"
 	"zgo.at/zli"
 )
-
-func fatal(err error) {
-	if err == nil {
-		return
-	}
-	fmt.Fprintf(os.Stderr, "fatal: %s\n", err)
-	os.Exit(1)
-}
 
 type (
 	xrefArgs struct {
